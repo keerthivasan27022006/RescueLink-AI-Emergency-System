@@ -21,3 +21,12 @@ Hybrid system using LoRa + AI (Gemini).
 
 ## Note
 This is a simulation prototype due to hardware constraints.
+## How to Run
+
+1. Install dependencies:
+npm install
+
+2. Start backend:
+node server.js
+
+3. Open index.html in browser
