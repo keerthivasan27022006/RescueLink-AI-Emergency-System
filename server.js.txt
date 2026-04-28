@@ -1,0 +1,100 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+
+// Gemini (optional)
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+
+// Initialize Gemini
+let genAI = null;
+try {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+} catch {
+    console.log("⚠️ Gemini not configured, using fallback AI");
+}
+
+// 🔹 AI ANALYSIS FUNCTION
+async function analyzeEmergency(type, location) {
+
+    // If Gemini available → use it
+    if (genAI) {
+        try {
+            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+            const prompt = `
+            Emergency detected:
+            Type: ${type}
+            Location: ${location}
+
+            Classify severity (LOW, MEDIUM, CRITICAL)
+            and give a short rescue instruction (1 line).
+            `;
+
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+
+            return {
+                severity: "AI ANALYZED",
+                message: text
+            };
+
+        } catch (err) {
+            console.log("Gemini error → fallback used");
+        }
+    }
+
+    // 🔻 Fallback logic
+    if (type === "SOS") {
+        return {
+            severity: "CRITICAL 🔴",
+            message: "Immediate rescue required. Possible life-threatening emergency."
+        };
+    }
+
+    return {
+        severity: "MEDIUM 🟡",
+        message: "Monitor the situation."
+    };
+}
+
+// 🔹 STORE LOGS (simulation DB)
+let emergencyLogs = [];
+
+// 🔹 MAIN API
+app.post("/emergency", async (req, res) => {
+    const { type, location, time } = req.body;
+
+    console.log("🚨 Emergency:", type, location);
+
+    const aiResult = await analyzeEmergency(type, location);
+
+    // Save log
+    emergencyLogs.push({
+        type,
+        location,
+        time,
+        result: aiResult
+    });
+
+    res.json(aiResult);
+});
+
+// 🔹 GET ALL LOGS (for dashboard)
+app.get("/logs", (req, res) => {
+    res.json(emergencyLogs);
+});
+
+// 🔹 HEALTH CHECK
+app.get("/", (req, res) => {
+    res.send("RescueLink Backend Running 🚀");
+});
+
+app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+});

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>RescueLink AI Emergency System</title>
+
+<style>
+/* ===== UI DESIGN ===== */
+
+/* Background styling */
+body {
+    margin: 0;
+    font-family: 'Segoe UI';
+    background: radial-gradient(circle, #0f2027, #203a43, #2c5364);
+    color: white;
+}
+
+/* Glass effect card */
+.card {
+    backdrop-filter: blur(15px);
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px;
+}
+
+/* Radar animation (AI monitoring visual) */
+.radar {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 2px solid #00ffcc;
+    margin: auto;
+    position: relative;
+}
+
+/* Expanding pulse animation */
+.radar::before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #00ffcc;
+    animation: pulse 2s infinite;
+}
+
+/* Animation keyframes */
+@keyframes pulse {
+    0% {transform: scale(0.5); opacity: 1;}
+    100% {transform: scale(2); opacity: 0;}
+}
+
+/* AI status text */
+.status {
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* Active AI color */
+.active {
+    color: #00ffcc;
+}
+
+/* Button styling */
+button {
+    width: 90%;
+    padding: 15px;
+    margin: 10px;
+    font-size: 18px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Button colors */
+.sos { background: #ff3b3b; }
+.voice { background: #00c3ff; }
+.fall { background: #a855f7; }
+
+/* Emergency alert banner */
+.alert {
+    background: red;
+    padding: 10px;
+    text-align: center;
+    display: none;
+}
+
+/* Log section */
+#log {
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== ALERT BANNER ===== -->
+<div class="alert" id="alertBox">
+🚨 EMERGENCY DETECTED 🚨
+</div>
+
+<!-- ===== AI MONITORING SECTION ===== -->
+<div class="card">
+    <h2 style="text-align:center;">🤖 AI Monitoring</h2>
+
+    <!-- Radar animation -->
+    <div class="radar"></div>
+
+    <!-- AI status -->
+    <div class="status active">AI ACTIVE • Monitoring</div>
+
+    <!-- Severity result from backend AI -->
+    <p id="severity">Severity: --</p>
+</div>
+
+<!-- ===== LOCATION SECTION ===== -->
+<div class="card">
+    <h3>📍 Location</h3>
+    <p id="location">Fetching...</p>
+</div>
+
+<!-- ===== CONTROL BUTTONS ===== -->
+<div class="card">
+    <!-- Manual emergency trigger -->
+    <button class="sos" onclick="triggerSOS()">🚨 SOS</button>
+
+    <!-- Voice-based trigger -->
+    <button class="voice" onclick="startVoice()">🎤 Voice AI</button>
+
+    <!-- Fall detection simulation -->
+    <button class="fall" onclick="simulateFall()">🤖 Fall Detection</button>
+</div>
+
+<!-- ===== LOGS SECTION ===== -->
+<div class="card">
+    <h3>📊 Logs</h3>
+    <div id="log"></div>
+</div>
+
+<script>
+
+/* ===== GLOBAL VARIABLE ===== */
+let currentLocation = "Unknown";
+
+/* ===== LOG FUNCTION =====
+   Displays system messages in UI */
+function log(msg) {
+    document.getElementById("log").innerHTML += "<p>" + msg + "</p>";
+}
+
+/* ===== GPS LOCATION FETCH =====
+   Gets user location using browser API */
+navigator.geolocation.getCurrentPosition(pos => {
+    currentLocation = `Lat: ${pos.coords.latitude}, Lon: ${pos.coords.longitude}`;
+    document.getElementById("location").innerText = currentLocation;
+});
+
+/* ===== SEND DATA TO BACKEND =====
+   Sends emergency details to server */
+async function sendToServer(type) {
+    try {
+        let res = await fetch("http://localhost:3000/emergency", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                type: type,                  // Emergency type
+                location: currentLocation,   // GPS data
+                time: new Date()             // Timestamp
+            })
+        });
+
+        let data = await res.json();
+
+        /* Update AI severity result */
+        document.getElementById("severity").innerText = 
+            "Severity: " + data.severity;
+
+        /* Show AI response */
+        log("🤖 AI: " + data.message);
+
+    } catch (e) {
+        /* Offline fallback (LoRa simulation) */
+        log("📡 No internet → Offline Mode (LoRa simulated)");
+    }
+}
+
+/* ===== SOS FUNCTION =====
+   Manual emergency trigger */
+function triggerSOS() {
+    document.getElementById("alertBox").style.display = "block";
+    log("🚨 SOS Triggered!");
+
+    /* Send data to backend */
+    sendToServer("SOS");
+}
+
+/* ===== VOICE AI =====
+   Detects 'help' voice command */
+function startVoice() {
+    const recognition = new webkitSpeechRecognition();
+
+    recognition.onresult = function(event) {
+        let speech = event.results[0][0].transcript;
+
+        log("🎤 " + speech);
+
+        /* If user says help → trigger SOS */
+        if (speech.includes("help")) triggerSOS();
+    };
+
+    recognition.start();
+}
+
+/* ===== FALL DETECTION =====
+   Simulates accident detection */
+function simulateFall() {
+    log("⚠️ Fall detected!");
+
+    setTimeout(() => {
+        log("🚨 No movement → SOS triggered");
+        triggerSOS();
+    }, 3000);
+}
+
+</script>
+</body>
+</html>
